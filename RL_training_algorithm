@@ -1,0 +1,70 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.metrics import accuracy_score
+from tensorflow.keras.utils import to_categorical
+import hashlib
+
+# Read the dataset
+data = pd.read_excel("Dataset_Traffic_Classification.xlsx")
+
+# Data Preprocessing
+new_header = data.iloc[0]  # getting headers
+data = data[1:]  # making the headers
+data.columns = new_header
+data = data.iloc[:, :3]  # selecting the required columns
+
+# renaming the data columns
+data = data.rename(columns={
+    data.columns[0]: 'HMCI',
+    data.columns[1]: 'Burst Freq',
+    data.columns[2]: 'Traffic Class'
+})
+
+# processing the data into features and labels
+data.fillna(data.mean(), inplace=True)
+data['Traffic Class'] = data['Traffic Class'].values
+X = data[['HMCI', 'Burst Freq']].values
+y = data['Traffic Class'].values
+
+# Data Normalization process
+X = (X - X.mean(axis=0)) / X.std(axis=0)
+y = y - 1
+
+# Labels conversion based on one-hot encoded vectors
+y = to_categorical(y, num_classes=3)
+
+# Splitting data into train and test
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
+
+# Model Development
+model = Sequential([
+    Dense(64, activation='relu', input_shape=(2,)),
+    Dropout(0.2),
+    Dense(128, activation='relu')
+])
+
+# Model Compiling Process
+optimizer = Adam(learning_rate=0.001)
+model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Training of the Model
+history = model.fit(X_train, y_train, epochs=40, batch_size=16, validation_split=0.2, verbose=1)
+
+# Evaluation of the Model
+loss, accuracy = model.evaluate(X_test, y_test)
+
+# Generating Prediction Results
+res_pred = np.argmax(model.predict(X_test), axis=-1) + 1
+
+# Getting Classification Metrics
+classification_res = 1 - (np.sum(res_pred == np.argmax(y_test, axis=-1) + 1) / len(y_test))
+
+# Printing results
+print("Model Accuracy: (%)", round(accuracy * 100))
+print("Model Classification Error: (%)", round(classification_res * 100))
